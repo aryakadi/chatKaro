@@ -8,7 +8,7 @@ import lombok.Setter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.List;import java.time.LocalDateTime;
 
 @Document(collection = "rooms")
 // MongoDB will create:
@@ -24,4 +24,5 @@ public class Room {
     private  String roomId;
 
     private List<Message> messages= new ArrayList<>();
+    private LocalDateTime createdAt = LocalDateTime.now();
 }
