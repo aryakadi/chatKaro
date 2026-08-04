@@ -1,34 +1,43 @@
-import React, { useState } from "react";
+import React from "react";
 import chatIcon from "../assets/chat.png";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { createRoomApi, joinChatApi } from "../services/RoomService";
 import useChatContext from "../context/ChatContext";
 import { useNavigate } from "react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { motion } from "framer-motion";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { MessageSquarePlus, LogIn } from "lucide-react";
+
+const formSchema = z.object({
+  userName: z.string().min(2, "Name must be at least 2 characters"),
+  roomId: z.string().min(3, "Room ID must be at least 3 characters"),
+});
 
 const JoinCreateChat = () => {
-  const [detail, setDetail] = useState({ roomId: "", userName: "" });
-
   const { setRoomId, setCurrentUser, setConnected } = useChatContext();
   const navigate = useNavigate();
 
-  function handleFormInputChange(event) {
-    setDetail((prev) => ({ ...prev, [event.target.name]: event.target.value }));
-  }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      userName: "",
+      roomId: "",
+    },
+  });
 
-  function validateForm() {
-    if (!detail.roomId.trim() || !detail.userName.trim()) {
-      toast.error("Both name and room ID are required.");
-      return false;
-    }
-    return true;
-  }
-
-  async function joinChat() {
-    if (!validateForm()) return;
-
+  const onJoin = async (data) => {
     try {
-      const room = await joinChatApi(detail.roomId.trim());
-      setCurrentUser(detail.userName.trim());
+      const room = await joinChatApi(data.roomId.trim());
+      setCurrentUser(data.userName.trim());
       setRoomId(room.roomId);
       setConnected(true);
       navigate("/chat");
@@ -41,14 +50,12 @@ const JoinCreateChat = () => {
       }
       console.error(error);
     }
-  }
+  };
 
-  async function createRoom() {
-    if (!validateForm()) return;
-
+  const onCreate = async (data) => {
     try {
-      const response = await createRoomApi(detail.roomId.trim());
-      setCurrentUser(detail.userName.trim());
+      const response = await createRoomApi(data.roomId.trim());
+      setCurrentUser(data.userName.trim());
       setRoomId(response.roomId);
       setConnected(true);
       navigate("/chat");
@@ -61,64 +68,80 @@ const JoinCreateChat = () => {
       }
       console.error(error);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-300/40 transition-all duration-300 hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-900/40">
-        <div className="mb-6 text-center">
-          <img src={chatIcon} alt="Chat" className="mx-auto h-20 w-20" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">Join or Create a Room</h1>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">Start chatting instantly with your team or friends.</p>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label htmlFor="userName" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-              Your Name
-            </label>
-            <input
-              id="userName"
-              name="userName"
-              type="text"
-              value={detail.userName}
-              onChange={handleFormInputChange}
-              placeholder="Enter your name"
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-900/40"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="roomId" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-              Room ID
-            </label>
-            <input
-              id="roomId"
-              name="roomId"
-              type="text"
-              value={detail.roomId}
-              onChange={handleFormInputChange}
-              placeholder="Enter or create room ID"
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-900/40"
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              onClick={joinChat}
-              className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md"
+      >
+        <Card className="border-slate-800 bg-slate-900/50 backdrop-blur-xl shadow-2xl">
+          <CardHeader className="text-center space-y-4 pt-8">
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="mx-auto bg-indigo-500/10 p-4 rounded-2xl w-fit"
             >
-              Join Room
-            </button>
-            <button
-              onClick={createRoom}
-              className="flex-1 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-            >
-              Create Room
-            </button>
-          </div>
-        </div>
-      </div>
+              <img src={chatIcon} alt="Chat" className="h-16 w-16 drop-shadow-lg" />
+            </motion.div>
+            <div className="space-y-2">
+              <CardTitle className="text-3xl font-bold tracking-tight text-slate-50">Welcome to ChatKaro</CardTitle>
+              <CardDescription className="text-slate-400 text-base">
+                Join an existing room or create a new one to start chatting instantly.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="pb-8 px-8">
+            <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300 ml-1">Your Name</label>
+                <Input
+                  {...register("userName")}
+                  placeholder="Enter your name"
+                  className="bg-slate-950/50 border-slate-700/50 focus-visible:ring-indigo-500/50 h-12"
+                />
+                {errors.userName && (
+                  <p className="text-red-400 text-sm ml-1">{errors.userName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300 ml-1">Room ID</label>
+                <Input
+                  {...register("roomId")}
+                  placeholder="Enter or create room ID"
+                  className="bg-slate-950/50 border-slate-700/50 focus-visible:ring-indigo-500/50 h-12"
+                />
+                {errors.roomId && (
+                  <p className="text-red-400 text-sm ml-1">{errors.roomId.message}</p>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button 
+                  onClick={handleSubmit(onJoin)}
+                  disabled={isSubmitting}
+                  className="flex-1 h-12 text-base font-semibold shadow-indigo-500/25"
+                >
+                  <LogIn className="w-5 h-5 mr-2" />
+                  Join Room
+                </Button>
+                <Button 
+                  onClick={handleSubmit(onCreate)}
+                  disabled={isSubmitting}
+                  variant="outline"
+                  className="flex-1 h-12 text-base font-semibold bg-transparent border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-200"
+                >
+                  <MessageSquarePlus className="w-5 h-5 mr-2" />
+                  Create Room
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };

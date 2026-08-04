@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { MdSend } from "react-icons/md";
 import chatIcon from "../assets/chat.png";
 import useChatContext from "../context/ChatContext";
 import { useNavigate } from "react-router";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Stomp } from "@stomp/stompjs";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { baseURL } from "../config/AxiosHelper";
 import { getMessagess } from "../services/RoomService";
-import { timeAgo } from "../config/helper";
+import MessageBubble from "./chat/MessageBubble";
+import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
+import { Send, LogOut, MessageSquareDashed } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ChatPage = () => {
   const {
@@ -29,8 +32,10 @@ const ChatPage = () => {
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const chatBoxRef = useRef(null);
   const [stompClient, setStompClient] = useState(null);
+  const textareaRef = useRef(null);
 
   const scrollToBottom = (behavior = "smooth") => {
     if (chatBoxRef.current) {
@@ -44,11 +49,15 @@ const ChatPage = () => {
   useEffect(() => {
     async function loadMessages() {
       try {
+        setIsLoading(true);
         const messageList = await getMessagess(roomId);
         setMessages(messageList);
-        setTimeout(() => scrollToBottom("auto"), 100); // initial bottom view
+        setTimeout(() => scrollToBottom("auto"), 100);
       } catch (error) {
         console.error("Load messages failed", error);
+        toast.error("Failed to load messages");
+      } finally {
+        setIsLoading(false);
       }
     }
     if (connected) {
@@ -70,15 +79,11 @@ const ChatPage = () => {
 
       client.connect({}, () => {
         setStompClient(client);
-        toast.success("WebSocket connected");
+        toast.success("Connected to room");
 
         client.subscribe(`/topic/room/${roomId}`, (message) => {
           const newMessage = JSON.parse(message.body);
-
-          if (newMessage?.content === "WebSocket connected") {
-            return;
-          }
-
+          if (newMessage?.content === "WebSocket connected") return;
           setMessages((prev) => [...prev, newMessage]);
         });
       });
@@ -89,13 +94,11 @@ const ChatPage = () => {
     }
 
     return () => {
-      if (clientRef) {
-        clientRef.disconnect();
-      }
+      if (clientRef) clientRef.disconnect();
     };
   }, [connected, roomId]);
 
-  const sendMessage = async () => {
+  const sendMessage = () => {
     if (stompClient && connected && input.trim()) {
       const message = {
         sender: currentUser,
@@ -105,7 +108,25 @@ const ChatPage = () => {
 
       stompClient.send(`/app/sendMessage/${roomId}`, {}, JSON.stringify(message));
       setInput("");
-      setTimeout(() => scrollToBottom(), 50); // ensure new message is visible
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+      setTimeout(() => scrollToBottom(), 50);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const handleInput = (e) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   };
 
@@ -117,99 +138,112 @@ const ChatPage = () => {
     navigate("/");
   }
 
-  const renderAvatar = (name) => {
-    const initials = name
-      ? name
-          .split(" ")
-          .map((part) => part.charAt(0).toUpperCase())
-          .slice(0, 2)
-          .join("")
-      : "U";
-    return (
-      <div className="h-9 w-9 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center shadow-sm">
-        {initials}
-      </div>
-    );
-  };
+  if (!connected) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white/80 pb-0 backdrop-blur dark:from-slate-900 dark:to-slate-900/95">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <div className="flex flex-col h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-slate-50 overflow-hidden">
+      {/* Header */}
+      <header className="flex-none sticky top-0 z-30 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-6 h-16">
           <div className="flex items-center gap-3">
-            <img src={chatIcon} alt="Chat" className="h-10 w-10 rounded-xl shadow-md" />
+            <div className="relative">
+              <img src={chatIcon} alt="Chat" className="h-9 w-9 rounded-xl shadow-md" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
+            </div>
             <div>
-              <p className="text-xs uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Active room</p>
-              <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">{roomId || "Unknown Room"}</h1>
+              <h1 className="text-sm font-semibold text-slate-100 leading-tight">{roomId}</h1>
+              <p className="text-xs text-slate-400 leading-tight">Active Room</p>
             </div>
           </div>
 
-          <div className="hidden min-w-[150px] md:block">
-            <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">Signed in as</p>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-              <span>{currentUser || "Guest"}</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-xs text-slate-400">Signed in as</span>
+              <span className="text-sm font-medium text-indigo-300">{currentUser}</span>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="text-red-400 border-red-900/30 hover:bg-red-500/10 hover:text-red-300 h-9"
+            >
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Leave</span>
+            </Button>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-          >
-            Leave Room
-          </button>
         </div>
       </header>
 
+      {/* Main Chat Area */}
       <main
         ref={chatBoxRef}
-        className="mx-auto mt-20 mb-24 h-[calc(100vh-9rem)] max-w-5xl overflow-y-auto px-3 sm:px-6"
+        className="flex-1 overflow-y-auto scroll-smooth p-4 sm:px-6 w-full max-w-5xl mx-auto custom-scrollbar"
       >
-        <div className="space-y-3">
-          {messages.map((message, index) => {
-            const isMine = message.sender === currentUser;
-            const bubbleClasses = isMine
-              ? "bg-indigo-600 text-white rounded-2xl rounded-br-none border border-indigo-500"
-              : "bg-white text-slate-800 rounded-2xl rounded-bl-none border border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700";
-
-            return (
-              <div key={index} className={`flex ${isMine ? "justify-end" : "justify-start"} px-2`}>
-                <div className="flex max-w-[90%] items-end gap-2">
-                  {!isMine && renderAvatar(message.sender)}
-
-                  <div className={`${bubbleClasses} p-3 shadow-sm transition-all duration-200 hover:shadow-md`}>
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm">{message.sender}</p>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-300">{timeAgo(message.timeStamp)}</span>
+        <div className="flex flex-col gap-4 py-4 min-h-full justify-end">
+          {isLoading ? (
+            <div className="space-y-6 w-full">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className={`flex w-full ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                  <div className={`flex gap-3 max-w-[70%] ${i % 2 === 0 ? "flex-row" : "flex-row-reverse"}`}>
+                    <Skeleton className="w-8 h-8 rounded-full shrink-0 bg-slate-800" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-20 bg-slate-800" />
+                      <Skeleton className={`h-16 rounded-2xl bg-slate-800/50 ${i % 2 === 0 ? 'w-48' : 'w-64'}`} />
                     </div>
-                    <p className="text-sm leading-relaxed break-words">{message.content}</p>
                   </div>
-
-                  {isMine && renderAvatar(message.sender)}
                 </div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 opacity-80 py-20">
+              <MessageSquareDashed className="w-16 h-16 mb-4 text-slate-700" />
+              <h3 className="text-lg font-medium text-slate-300">No messages yet</h3>
+              <p className="text-sm">Be the first to say hello!</p>
+            </div>
+          ) : (
+            <AnimatePresence initial={false}>
+              {messages.map((message, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <MessageBubble message={message} isMine={message.sender === currentUser} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
         </div>
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:px-6">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm transition-all duration-200 focus-within:ring-2 focus-within:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            type="text"
-            placeholder="Type your message..."
-            className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none dark:text-slate-100 dark:placeholder:text-slate-500"
-          />
-          <button
-            type="button"
-            className="rounded-full bg-emerald-500 px-3 py-2 text-white shadow hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-            onClick={sendMessage}
-            aria-label="Send message"
-          >
-            <MdSend size={20} />
-          </button>
+      {/* Composer Area */}
+      <footer className="flex-none p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md border-t border-slate-800/60 z-30">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="flex items-end gap-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-2 pl-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all shadow-sm">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Message #room..."
+              rows={1}
+              className="w-full max-h-[200px] min-h-[24px] bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none resize-none py-2.5 custom-scrollbar"
+            />
+            <Button
+              onClick={sendMessage}
+              disabled={!input.trim()}
+              size="icon"
+              className="h-10 w-10 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-md disabled:bg-slate-800 disabled:text-slate-500 transition-colors"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="text-center mt-2">
+            <span className="text-[10px] text-slate-500 font-medium tracking-wide">
+              <strong>Enter</strong> to send &bull; <strong>Shift + Enter</strong> for new line
+            </span>
+          </div>
         </div>
       </footer>
     </div>
