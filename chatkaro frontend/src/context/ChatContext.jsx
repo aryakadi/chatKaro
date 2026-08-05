@@ -1,11 +1,28 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const ChatContext = createContext();
 
+const useSessionStorage = (key, initialValue) => {
+  const [value, setValue] = useState(() => {
+    try {
+      const item = window.sessionStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+};
+
 export const ChatProvider = ({ children }) => {
-  const [roomId, setRoomId] = useState("");
-  const [currentUser, setCurrentUser] = useState("");
-  const [connected, setConnected] = useState(false);
+  const [roomId, setRoomId] = useSessionStorage("chat_roomId", "");
+  const [currentUser, setCurrentUser] = useSessionStorage("chat_currentUser", "");
+  const [connected, setConnected] = useSessionStorage("chat_connected", false);
 
   return (
     <ChatContext.Provider
