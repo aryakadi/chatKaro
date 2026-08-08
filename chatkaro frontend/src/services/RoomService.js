@@ -20,3 +20,10 @@ export const getMessagess = async (roomId, size = 50, page = 0) => {
   );
   return response.data;
 };
+
+export const getRoomSummary = async (roomId, count = 50) => {
+  const response = await httpClient.get(
+    `/api/v1/rooms/${roomId}/summary?count=${count}`
+  );
+  return response.data;
+};

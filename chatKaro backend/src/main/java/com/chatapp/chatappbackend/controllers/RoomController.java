@@ -1,9 +1,9 @@
 package com.chatapp.chatappbackend.controllers;
 
-import com.chatapp.chatappbackend.config.AppConstants;
 import com.chatapp.chatappbackend.entities.Message;
 import com.chatapp.chatappbackend.entities.Room;
 import com.chatapp.chatappbackend.repositories.RoomRepository;
+import com.chatapp.chatappbackend.services.ChatSummaryService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,14 +11,21 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/v1/rooms")
 @CrossOrigin(origins = "*")
 public class RoomController {
-    private final RoomRepository roomRepository;
+    private static final Logger logger = LoggerFactory.getLogger(RoomController.class);
 
-    public RoomController(RoomRepository roomRepository) {
+    private final RoomRepository roomRepository;
+    private final ChatSummaryService chatSummaryService;
+
+    public RoomController(RoomRepository roomRepository, ChatSummaryService chatSummaryService) {
         this.roomRepository = roomRepository;
+        this.chatSummaryService = chatSummaryService;
     }
 
     @PostMapping
@@ -68,6 +75,38 @@ public class RoomController {
         List<Message> paginatedMessages = messages.subList(start, end);
         return ResponseEntity.ok(paginatedMessages);
 
+    }
+
+    @GetMapping("/{roomId}/summary")
+    public ResponseEntity<String> getRoomSummary(
+            @PathVariable String roomId,
+            @RequestParam(value = "count", defaultValue = "50") int count) {
+        Room room = roomRepository.findByRoomId(roomId);
+        if (room == null) {
+            return ResponseEntity.badRequest().body("Room not found!!");
+        }
+        
+        List<Message> messages = room.getMessages();
+        
+        if (messages == null || messages.isEmpty()) {
+            return ResponseEntity.badRequest().body("Not enough messages to summarize. The room is empty.");
+        }
+        
+        if (messages.size() < 3) {
+            return ResponseEntity.badRequest().body("Only " + messages.size() + " messages exist. Need at least 3 messages to generate a meaningful summary.");
+        }
+
+        int start = Math.max(0, messages.size() - count);
+        List<Message> recentMessages = messages.subList(start, messages.size());
+        
+        try {
+            String summary = chatSummaryService.summarizeMessages(recentMessages);
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            logger.error("Error generating summary:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("AI service is temporarily unavailable or API key is invalid. Error: " + e.getMessage());
+        }
     }
 
 }

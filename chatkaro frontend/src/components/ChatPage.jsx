@@ -6,7 +6,7 @@ import SockJS from "sockjs-client/dist/sockjs";
 import { Stomp } from "@stomp/stompjs";
 import { toast } from "sonner";
 import { baseURL } from "../config/AxiosHelper";
-import { getMessagess } from "../services/RoomService";
+import { getMessagess, getRoomSummary } from "../services/RoomService";
 import MessageBubble from "./chat/MessageBubble";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
@@ -33,6 +33,10 @@ const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [summary, setSummary] = useState(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryCount, setSummaryCount] = useState(10);
+
   const chatBoxRef = useRef(null);
   const [stompClient, setStompClient] = useState(null);
   const textareaRef = useRef(null);
@@ -55,7 +59,7 @@ const ChatPage = () => {
         setTimeout(() => scrollToBottom("auto"), 100);
       } catch (error) {
         console.error("Load messages failed", error);
-        toast.error("Failed to load messages");
+        toast.error("An error occurred while loading messages. Please refresh or try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -138,6 +142,20 @@ const ChatPage = () => {
     navigate("/");
   }
 
+  const handleSummarize = async () => {
+    try {
+      setIsSummarizing(true);
+      const data = await getRoomSummary(roomId, summaryCount);
+      setSummary(data);
+    } catch (error) {
+      console.error("Failed to generate summary", error);
+      const errorMsg = error.response?.data || "An error occurred while generating the summary. The AI service may be unavailable.";
+      toast.error(errorMsg);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   if (!connected) return null;
 
   return (
@@ -158,6 +176,29 @@ const ChatPage = () => {
 
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2">
+              <select 
+                value={summaryCount} 
+                onChange={(e) => setSummaryCount(Number(e.target.value))}
+                className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded px-2 py-1 outline-none h-8 cursor-pointer"
+              >
+                <option value={10}>Last 10</option>
+                <option value={20}>Last 20</option>
+                <option value={30}>Last 30</option>
+                <option value={40}>Last 40</option>
+                <option value={50}>Last 50</option>
+              </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSummarize}
+                disabled={isSummarizing}
+                className="text-indigo-400 border-indigo-900/30 hover:bg-indigo-500/10 hover:text-indigo-300 h-8 text-xs px-3"
+              >
+                {isSummarizing ? "Summarizing..." : "Summarize"}
+              </Button>
+            </div>
+            
+            <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-4 ml-1">
               <span className="text-xs text-slate-400">Signed in as</span>
               <span className="text-sm font-medium text-indigo-300">{currentUser}</span>
             </div>
@@ -246,6 +287,73 @@ const ChatPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Summary Loading Modal */}
+      <AnimatePresence>
+        {isSummarizing && !summary && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden flex flex-col items-center justify-center p-8 gap-4"
+            >
+              <div className="relative flex h-14 w-14 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-20"></span>
+                <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+                  <span className="text-xl">✨</span>
+                </div>
+              </div>
+              <h3 className="text-lg font-medium text-slate-200">Generating AI Summary...</h3>
+              <p className="text-xs text-slate-400 text-center">Analyzing the last {summaryCount} messages</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Summary Result Modal */}
+      <AnimatePresence>
+        {summary && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+                  <span className="text-indigo-400">✨</span> AI Summary ({summaryCount} messages)
+                </h3>
+                <button 
+                  onClick={() => setSummary(null)}
+                  className="text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto custom-scrollbar text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {summary}
+              </div>
+              <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex justify-end">
+                <Button onClick={() => setSummary(null)} className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                  Close
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

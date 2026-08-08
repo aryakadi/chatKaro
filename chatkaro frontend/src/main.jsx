@@ -14,7 +14,7 @@ import { ChatProvider } from "./context/ChatContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <BrowserRouter>
-    <Toaster position="top-center" theme="dark" richColors />
+    <Toaster position="top-center" theme="dark" richColors closeButton />
     <ChatProvider>
       <AppRoutes />
     </ChatProvider>

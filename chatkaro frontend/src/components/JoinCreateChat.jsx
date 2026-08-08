@@ -44,9 +44,9 @@ const JoinCreateChat = () => {
       toast.success("Joined room successfully.");
     } catch (error) {
       if (error?.status === 400) {
-        toast.error(error?.response?.data || "Invalid room.");
+        toast.error(error?.response?.data || "An error occurred: Invalid room.");
       } else {
-        toast.error("Error joining room.");
+        toast.error("An error occurred while attempting to join the room. Please try again.");
       }
       console.error(error);
     }
@@ -62,9 +62,9 @@ const JoinCreateChat = () => {
       toast.success("Room created and joined successfully.");
     } catch (error) {
       if (error?.status === 400) {
-        toast.error("Room already exists.");
+        toast.error("The specified room already exists. Please choose a different identifier.");
       } else {
-        toast.error("Error creating room.");
+        toast.error("An error occurred while attempting to create the room. Please try again.");
       }
       console.error(error);
     }

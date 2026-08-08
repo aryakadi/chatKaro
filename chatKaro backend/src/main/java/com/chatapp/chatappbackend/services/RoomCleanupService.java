@@ -9,8 +9,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class RoomCleanupService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RoomCleanupService.class);
 
     private final RoomRepository roomRepository;
 
@@ -21,7 +26,7 @@ public class RoomCleanupService {
     // Run every hour (3600000 ms)
     @Scheduled(fixedRate = 3600000)
     public void cleanupInactiveRooms() {
-        System.out.println("Running inactive room cleanup task...");
+        logger.info("Running inactive room cleanup task...");
         List<Room> allRooms = roomRepository.findAll();
         LocalDateTime threshold = LocalDateTime.now().minusHours(24);
         int deletedCount = 0;
@@ -45,10 +50,10 @@ public class RoomCleanupService {
             if (shouldDelete) {
                 roomRepository.delete(room);
                 deletedCount++;
-                System.out.println("Deleted inactive room: " + room.getRoomId());
+                logger.info("Deleted inactive room: {}", room.getRoomId());
             }
         }
         
-        System.out.println("Cleanup complete. Deleted " + deletedCount + " rooms.");
+        logger.info("Cleanup complete. Deleted {} rooms.", deletedCount);
     }
 }

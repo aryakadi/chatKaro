@@ -1,6 +1,5 @@
 package com.chatapp.chatappbackend.controllers;
 
-import com.chatapp.chatappbackend.config.AppConstants;
 import com.chatapp.chatappbackend.entities.Message;
 import com.chatapp.chatappbackend.entities.Room;
 import com.chatapp.chatappbackend.payload.MessageRequest;
@@ -46,10 +45,4 @@ public class ChatController {
 
     }
 }
-
-// WebSocket controller that receives messages from clients via @MessageMapping
-// (e.g., /app/sendMessage/{roomId}),
-// processes and saves them to the database, and uses @SendTo to broadcast the
-// message to all subscribers
-// of a topic (e.g., /topic/room/{roomId}) — no HTTP request/response or view
-// rendering involved
+
