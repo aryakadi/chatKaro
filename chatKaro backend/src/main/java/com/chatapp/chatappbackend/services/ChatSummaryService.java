@@ -43,17 +43,13 @@ public class ChatSummaryService {
                 "Limit the response to 150 words.\n\n" +
                 "Conversation:\n" + conversation;
 
-        String url =
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
-                        + geminiApiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
+                + geminiApiKey;
         // Construct JSON payload
         Map<String, Object> requestBody = Map.of(
-            "contents", List.of(
-                Map.of("parts", List.of(
-                    Map.of("text", prompt)
-                ))
-            )
-        );
+                "contents", List.of(
+                        Map.of("parts", List.of(
+                                Map.of("text", prompt)))));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -61,7 +57,7 @@ public class ChatSummaryService {
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
-        
+
         if (response.getBody() != null && response.getBody().containsKey("candidates")) {
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.getBody().get("candidates");
             if (!candidates.isEmpty()) {
